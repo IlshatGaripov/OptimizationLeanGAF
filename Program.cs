@@ -121,19 +121,8 @@ namespace Optimization
 		    Config.Set("algorithm-location", "Optimization.exe");
 		    Config.Set("data-folder", "C:/Users/stranger/Google Drive/Data/");
 
-            /*
-		    _jobQueue = new JobQueue();
-		    _notify = new Messaging();
-		    _api = new Api();
-		    _resultshandler = new DesktopResultHandler();
-		    _dataFeed = new FileSystemDataFeed();
-		    _setup = new ConsoleSetupHandler();
-		    _realTime = new BacktestingRealTimeHandler();
-		    _historyProvider = new SubscriptionDataReaderHistoryProvider();
-		    _transactions = new BacktestingTransactionHandler();
-		    var systemHandlers = new LeanEngineSystemHandlers(_jobQueue, _api, _notify);
-		    systemHandlers.Initialize();
-            */
+            // default value set in QuantConnect.Configuration.Config is invalid. specify explicitely. 
+            Config.Set("job-queue-handler", "QuantConnect.Queues.JobQueue");
 
             // log handler
             Log.LogHandler = Composer.Instance.GetExportedValueByTypeName<ILogHandler>(Config.Get("log-handler", "CompositeLogHandler"));
