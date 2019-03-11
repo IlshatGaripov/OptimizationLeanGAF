@@ -1,2 +1,2 @@
 # LeanOptimization
-Genetic optimization using LEAN
+Genetic optimization using LEAN and GAF
