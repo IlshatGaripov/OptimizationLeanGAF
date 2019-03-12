@@ -16,7 +16,7 @@ namespace Optimization
     {
         public decimal Run(ConfigVars vars)
         {
-            foreach (KeyValuePair<string, object> kvp in vars.vars)
+            foreach (var kvp in vars.Vars)
                 Config.Set(kvp.Key, kvp.Value.ToString());
 
             // settings

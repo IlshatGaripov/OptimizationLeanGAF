@@ -4,7 +4,6 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
 using GAF;
-using GAF.Extensions;
 using GAF.Operators;
 
 namespace Optimization
@@ -43,60 +42,85 @@ namespace Optimization
         {
             _ads = SetupAppDomain();
 
+            // == GAs params ==
             const double crossoverProbability = 0.65;
             const double mutationProbability = 0.08;
             const int elitismPercentage = 5;
 
-            //create the population
-            //var population = new Population(100, 44, false, false);
-
+            // create an empty population
+            // default ParentSelectionMethod = FitnessProportionateSelection
             var population = new Population();
 
-            //create the chromosomes
-            for (var p = 0; p < 10; p++)
-            {
-                var chromosome = new Chromosome();
-                for (int i = 0; i < 2; i++)
-                {
-                    ConfigVars v = new ConfigVars();
-                    v.vars["bollinger-period"] = RandomNumberBetweenInt(10, 30);
-                    v.vars["bollinger-multiplier"] = RandomNumberBetween(1.8, 2.9);
+            // fill in with randomly created chromosomes
+            AddChromosomes(20, ref population);
 
-                    chromosome.Genes.Add(new Gene(v));
-                }
-                chromosome.Genes.ShuffleFast();
-                population.Solutions.Add(chromosome);
-            }
+            // create the GA  
+            var ga = new GeneticAlgorithm(population, CalculateFitness);
 
-            //create the genetic operators 
-            var elite = new Elite(elitismPercentage);
+            /*
+            // elite
+            var elite = new Elite(elitismPercentage);     
+            ga.Operators.Add(elite);
 
+            // crossover
             var crossover = new Crossover(crossoverProbability, true)
             {
                 CrossoverType = CrossoverType.SinglePoint
             };
-
+            ga.Operators.Add(crossover);
+            
+            // mutation
             var mutation = new BinaryMutate(mutationProbability, true);
+            ga.Operators.Add(mutation);
+            */
 
-            //create the GA itself 
-            var ga = new GeneticAlgorithm(population, CalculateFitness);
-
-            //subscribe to the GAs Generation Complete event 
+            // custom operator
+            ga.Operators.Add(new ConfigVarsOperator());
+            
+            // subscribe to the GAs Generation Complete event 
             ga.OnGenerationComplete += ga_OnGenerationComplete;
 
-            //add the operators to the ga process pipeline
-            //ga.Operators.Add(elite);
-            //ga.Operators.Add(crossover);
-            //ga.Operators.Add(mutation);
-
-            var cvOperator = new ConfigVarsOperator();
-            ga.Operators.Add(cvOperator);
-
-            //run the GA 
+            // run the GA 
             ga.Run(Terminate);
         }
 
-        static AppDomainSetup SetupAppDomain()
+        /// <summary>
+        /// Creates and adds chromosomes to population
+        /// </summary>
+        /// <param name="size">Number of cromosomes in initial population</param>
+        /// <param name="population">Population to fill up</param>
+        private static void AddChromosomes(int size, ref Population population)
+        {
+            // some checking for evenness
+            if (size % 2 != 0)
+            {
+                throw new ArgumentException("Population size must be an even number.");
+            }
+
+            // create the chromosomes and add to collection
+            for (var p = 0; p < size; p++)
+            {
+                var chromosome = new Chromosome();
+
+                var v = new ConfigVars
+                {
+                    Vars =
+                    {
+                        ["bollinger-period"] = RandomNumberBetweenInt(10, 30),
+                        ["bollinger-multiplier"] = RandomNumberBetween(1.8, 2.9)
+                    }
+                };
+
+                chromosome.Genes.Add(new Gene(v));
+
+                population.Solutions.Add(chromosome);
+            }
+        }
+
+        /// <summary>
+        /// Sets up app domain
+        /// </summary>
+        private static AppDomainSetup SetupAppDomain()
         {
             _callingDomainName = Thread.GetDomain().FriendlyName;
             //Console.WriteLine(callingDomainName);
@@ -134,7 +158,7 @@ namespace Optimization
             foreach (var gene in fittest.Genes)
             {
                 ConfigVars v = (ConfigVars)gene.ObjectValue;
-                foreach (KeyValuePair<string, object> kvp in v.vars)
+                foreach (KeyValuePair<string, object> kvp in v.Vars)
                     Console.WriteLine("Variable {0}:, value {1}", kvp.Key, kvp.Value.ToString());
             }
         }
@@ -162,7 +186,7 @@ namespace Optimization
                 var val = (ConfigVars)gene.ObjectValue;
                 AppDomain ad = null;
                 RunClass rc = CreateRunClassInAppDomain(ref ad);
-                foreach (KeyValuePair<string, object> kvp in val.vars)
+                foreach (KeyValuePair<string, object> kvp in val.Vars)
                     Console.WriteLine("Running algorithm with variable {0}:, value {1}", kvp.Key, kvp.Value.ToString());
 
                 var res = (double)rc.Run(val);
@@ -180,7 +204,7 @@ namespace Optimization
         public static bool Terminate(Population population,
             int currentGeneration, long currentEvaluation)
         {
-            return currentGeneration > 2;
+            return currentGeneration > 3;
         }
     }
 
@@ -209,15 +233,15 @@ namespace Optimization
 
 			try
 			{
-				var config_vars = (ConfigVars)best[rand.Next(0,min-1)].Genes [rand.Next(0,genecount-1)].ObjectValue;
-				var index = rand.Next(0, config_vars.vars.Count-1);
-				var key = config_vars.vars. ElementAt(index).Key;
+				var configVars = (ConfigVars)best[rand.Next(0,min-1)].Genes [rand.Next(0,genecount-1)].ObjectValue;
+				var index = rand.Next(0, configVars.Vars.Count-1);
+				var key = configVars.Vars. ElementAt(index).Key;
 				newPopulation.Solutions.Clear();
 				foreach (var chromosome in currentPopulation.Solutions) {
 					if (chromosome.Fitness < cutoff) {
 						foreach (var gene in chromosome.Genes) {
-							var target_config_vars = (ConfigVars)gene.ObjectValue;
-							target_config_vars.vars [key] = config_vars.vars [key];
+							var targetConfigVars = (ConfigVars)gene.ObjectValue;
+							targetConfigVars.Vars [key] = configVars.Vars [key];
 						}
 					}
 					newPopulation.Solutions.Add (chromosome);
@@ -239,12 +263,13 @@ namespace Optimization
 	}
 
     /// <summary>
-    /// Class 3
+    /// Represents that algorithm input parameters. Passed and retrieved via Lean's Config class.
     /// </summary>
 	[Serializable]
 	public class ConfigVars
 	{
-		public Dictionary<string,object> vars = new  Dictionary<string, object> ();
+		public readonly Dictionary<string,object> Vars = new  Dictionary<string, object> ();
+
 		public override bool Equals(object obj) 
 		{ 
 			var item = obj as ConfigVars; 
@@ -253,8 +278,8 @@ namespace Optimization
 
 		protected bool Equals(ConfigVars other) 
 		{ 
-			foreach (KeyValuePair<string,object> kvp in vars) {
-				if (kvp.Value.ToString () != other.vars [kvp.Key].ToString ())
+			foreach (var kvp in Vars) {
+				if (kvp.Value.ToString () != other.Vars [kvp.Key].ToString ())
 					return false;
 			}
 			return true;
@@ -264,8 +289,8 @@ namespace Optimization
 		{ 
 			unchecked 
 			{ 
-				int hashCode = 0;
-				foreach (KeyValuePair<string,object> kvp in vars)
+				var hashCode = 0;
+				foreach (var kvp in Vars)
 					hashCode = hashCode * kvp.Value.GetHashCode ();
 				return hashCode; 
 			} 
