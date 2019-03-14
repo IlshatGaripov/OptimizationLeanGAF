@@ -7,32 +7,14 @@ using Optimization.GeneticOperators;
 
 namespace Optimization
 {
-    /// <summary>
-    /// Class 1
-    /// </summary>
-	class MainClass
+    public class Program
     {
-        private static readonly Random random = new Random();
+        // do we need all those statics?
+
+        private static readonly Random Random = new Random();
         private static AppDomainSetup _ads;
         private static string _callingDomainName;
         private static string _exeAssembly;
-
-        /// <summary>
-        /// Generates randon double within a given interval
-        /// </summary>
-        private static double RandomNumberBetween(double minValue, double maxValue)
-        {
-            var next = random.NextDouble();
-            return minValue + (next * (maxValue - minValue));
-        }
-
-        /// <summary>
-        /// Generates randon in within a given interval
-        /// </summary>
-        private static int RandomNumberBetweenInt(int minValue, int maxValue)
-        {
-            return random.Next(minValue, maxValue);
-        }
 
         /// <summary>
         /// Program startup point
@@ -56,6 +38,7 @@ namespace Optimization
             // create the GA  
             var ga = new GeneticAlgorithm(population, CalculateFitness);
 
+
             /*
             // elite
             var elite = new Elite(elitismPercentage);     
@@ -71,13 +54,13 @@ namespace Optimization
             // mutation
             var mutation = new BinaryMutate(mutationProbability, true);
             ga.Operators.Add(mutation);
-            */
-
+            
             // custom operator
             ga.Operators.Add(new ConfigVarsOperator());
-            
+            */
+
             // subscribe to the GAs Generation Complete event 
-            ga.OnGenerationComplete += ga_OnGenerationComplete;
+            ga.OnGenerationComplete += NewGenerationEventHandler;
 
             // run the GA 
             ga.Run(Terminate);
@@ -117,6 +100,23 @@ namespace Optimization
         }
 
         /// <summary>
+        /// Generates randon double within a given interval
+        /// </summary>
+        private static double RandomNumberBetween(double minValue, double maxValue)
+        {
+            var next = Random.NextDouble();
+            return minValue + (next * (maxValue - minValue));
+        }
+
+        /// <summary>
+        /// Generates randon in within a given interval
+        /// </summary>
+        private static int RandomNumberBetweenInt(int minValue, int maxValue)
+        {
+            return Random.Next(minValue, maxValue);
+        }
+        
+        /// <summary>
         /// Sets up app domain
         /// </summary>
         private static AppDomainSetup SetupAppDomain()
@@ -129,12 +129,14 @@ namespace Optimization
             //Console.WriteLine(exeAssembly);
 
             // Construct and initialize settings for a second AppDomain.
-            AppDomainSetup ads = new AppDomainSetup();
-            ads.ApplicationBase = AppDomain.CurrentDomain.BaseDirectory;
+            AppDomainSetup ads = new AppDomainSetup
+            {
+                ApplicationBase = AppDomain.CurrentDomain.BaseDirectory,
+                DisallowBindingRedirects = false,
+                DisallowCodeDownload = true,
+                ConfigurationFile = AppDomain.CurrentDomain.SetupInformation.ConfigurationFile
+            };
 
-            ads.DisallowBindingRedirects = false;
-            ads.DisallowCodeDownload = true;
-            ads.ConfigurationFile = AppDomain.CurrentDomain.SetupInformation.ConfigurationFile;
             return ads;
         }
 
@@ -151,6 +153,7 @@ namespace Optimization
             return rc;
         }
 
+        /*
         static void ga_OnRunComplete(object sender, GaEventArgs e)
         {
             var fittest = e.Population.GetTop(1)[0];
@@ -161,8 +164,12 @@ namespace Optimization
                     Console.WriteLine("Variable {0}:, value {1}", kvp.Key, kvp.Value.ToString());
             }
         }
+        */
 
-        private static void ga_OnGenerationComplete(object sender, GaEventArgs e)
+        /// <summary>
+        /// Method to run after running a cycle of enabled operators - i.e. on OnGenerationComplete
+        /// </summary>
+        public static void NewGenerationEventHandler(object sender, GaEventArgs e)
         {
             var fittest = e.Population.GetTop(1)[0];
             var sharpe = RunAlgorithm(fittest);
