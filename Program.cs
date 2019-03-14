@@ -2,9 +2,8 @@
 using System.Threading;
 using System.Reflection;
 using System.Collections.Generic;
-using System.Linq;
 using GAF;
-using GAF.Operators;
+using Optimization.GeneticOperators;
 
 namespace Optimization
 {
@@ -91,7 +90,7 @@ namespace Optimization
         /// <param name="population">Population to fill up</param>
         private static void AddChromosomes(int size, ref Population population)
         {
-            // some checking for evenness
+            // checking for evenness
             if (size % 2 != 0)
             {
                 throw new ArgumentException("Population size must be an even number.");
@@ -169,13 +168,27 @@ namespace Optimization
             var sharpe = RunAlgorithm(fittest);
             Console.WriteLine("Generation: {0}, Fitness: {1},sharpe: {2}", e.Generation, fittest.Fitness, sharpe);
         }
+        
+        /// <summary>
+        /// This summaries conditions for GA to complete execution.
+        /// </summary>
+        public static bool Terminate(Population population, int currentGeneration, long currentEvaluation)
+        {
+            return currentGeneration > 3;
+        }
 
+        /// <summary>
+        /// Fitness function used for evaluation in GA 
+        /// </summary>
         public static double CalculateFitness(Chromosome chromosome)
         {
             var sharpe = RunAlgorithm(chromosome);
             return sharpe;
         }
 
+        /// <summary>
+        /// This is called inside CalculateFitness
+        /// </summary>
         private static double RunAlgorithm(Chromosome chromosome)
         {
             var sumSharpe = 0.0;
@@ -200,68 +213,8 @@ namespace Optimization
 
             return sumSharpe;
         }
-
-        public static bool Terminate(Population population,
-            int currentGeneration, long currentEvaluation)
-        {
-            return currentGeneration > 3;
-        }
     }
-
-    /// <summary>
-    /// Class 2
-    /// </summary>
-    public class ConfigVarsOperator : IGeneticOperator
-	{
-		private int _invoked = 0;
-		private static Random rand = new Random ();
-
-		public ConfigVarsOperator()
-		{
-			Enabled = true;
-		}
-
-		public void Invoke(Population currentPopulation, ref Population newPopulation, FitnessFunction fitnesFunctionDelegate)
-		{
-			//take top 3 
-			var num = 3;
-			var min = System.Math.Min (num, currentPopulation.Solutions.Count);
-
-			var best = currentPopulation.GetTop (min);
-			var cutoff = best [min-1].Fitness;
-			var genecount = best [0].Genes.Count;
-
-			try
-			{
-				var configVars = (ConfigVars)best[rand.Next(0,min-1)].Genes [rand.Next(0,genecount-1)].ObjectValue;
-				var index = rand.Next(0, configVars.Vars.Count-1);
-				var key = configVars.Vars. ElementAt(index).Key;
-				newPopulation.Solutions.Clear();
-				foreach (var chromosome in currentPopulation.Solutions) {
-					if (chromosome.Fitness < cutoff) {
-						foreach (var gene in chromosome.Genes) {
-							var targetConfigVars = (ConfigVars)gene.ObjectValue;
-							targetConfigVars.Vars [key] = configVars.Vars [key];
-						}
-					}
-					newPopulation.Solutions.Add (chromosome);
-				}
-
-				_invoked++;
-			}
-			catch(Exception e) {
-				Console.WriteLine ("OOPS! " + e.Message + " " + e.StackTrace);
-			}
-		}
-
-		public int GetOperatorInvokedEvaluations()
-		{
-			return _invoked;
-		}
-
-		public bool Enabled { get; set; }
-	}
-
+    
     /// <summary>
     /// Represents that algorithm input parameters. Passed and retrieved via Lean's Config class.
     /// </summary>
